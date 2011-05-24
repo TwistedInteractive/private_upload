@@ -393,10 +393,25 @@
 				$existing_file = $abs_path . '/' . basename($row['file'], '/');
 			}
 
+            /*
 			if((strtolower($existing_file) != strtolower($new_file)) && file_exists($new_file)){
-				$message = __('A file with the name %1$s already exists in %2$s. Please rename the file first, or choose another.', array($data['name'], $this->get('destination')));
-				return self::__INVALID_FIELDS__;
+                // File allready exists, rename the file so that it is unique.
+                $ok = false;
+                $i  = 2;
+                while($ok == false)
+                {
+                    $a = explode('.', $data['name']);
+                    $a[count($a)-2].='-'.$i;
+                    $filename = implode('.', $a);
+                    $new_file = $abs_path.'/'.$filename;
+                    $i++;
+                    $ok = !file_exists($new_file);
+                }
+				// $message = __('A file with the name %1$s already exists in %2$s. Please rename the file first, or choose another.', array($data['name'], $this->get('destination')));
+				// return self::__INVALID_FIELDS__;
 			}
+             
+             */
 
 			return self::__OK__;
 
@@ -423,7 +438,7 @@
 
 				// Ensure the file exists in the `WORKSPACE` directory
 				// @link http://symphony-cms.com/discuss/issues/view/610/
-				$file = WORKSPACE . preg_replace(array('%/+%', '%(^|/)../%'), '/', $data);
+				$file = preg_replace(array('%/+%', '%(^|/)../%'), '/', $data);
 
 				$result = array(
 					'file' => $data,
@@ -469,8 +484,8 @@
 				$existing_file = rtrim($rel_path, '/') . '/' . trim(basename($row['file']), '/');
 
 				// File was removed
-				if($data['error'] == UPLOAD_ERR_NO_FILE && !is_null($existing_file) && is_file(WORKSPACE . $existing_file)){
-					General::deleteFile(WORKSPACE . $existing_file);
+				if($data['error'] == UPLOAD_ERR_NO_FILE && !is_null($existing_file) && is_file($existing_file)){
+					General::deleteFile($existing_file);
 				}
 			}
 
@@ -480,7 +495,22 @@
 
 			// Sanitize the filename
 			$data['name'] = Lang::createFilename($data['name']);
+            $filename = $data['name'];
 
+            // Check for duplicates:
+            $ok = !file_exists($abs_path.'/'.$filename);
+            $i  = 2;
+            while($ok == false)
+            {
+                $a = explode('.', $data['name']);
+                $a[count($a)-2].='-'.$i;
+                $filename = implode('.', $a);
+                $new_file = $abs_path.'/'.$filename;
+                $i++;
+                $ok = !file_exists($new_file);
+            }
+            $data['name'] = $filename;
+            
 			if(!General::uploadFile($abs_path, $data['name'], $data['tmp_name'], Symphony::Configuration()->get('write_mode', 'file'))){
 
 				$message = __('There was an error while trying to upload the file <code>%1$s</code> to the target directory <code>%2$s</code>.', array($data['name'], 'workspace/'.ltrim($rel_path, '/')));
@@ -493,8 +523,8 @@
 			$file = rtrim($rel_path, '/') . '/' . trim($data['name'], '/');
 
 			// File has been replaced
-			if(!is_null($existing_file) && (strtolower($existing_file) != strtolower($file)) && is_file(WORKSPACE . $existing_file)){
-				General::deleteFile(WORKSPACE . $existing_file);
+			if(!is_null($existing_file) && (strtolower($existing_file) != strtolower($file)) && is_file($existing_file)){
+				General::deleteFile($existing_file);
 			}
 
 			// If browser doesn't send MIME type (e.g. .flv in Safari)
@@ -506,7 +536,7 @@
 				'file' => $file,
 				'size' => $data['size'],
 				'mimetype' => $data['type'],
-				'meta' => serialize(self::getMetaInfo(WORKSPACE . $file, $data['type']))
+				'meta' => serialize(self::getMetaInfo($file, $data['type']))
 			);
 		}
 
@@ -517,7 +547,7 @@
 
 			$meta['creation'] = DateTimeObj::get('c', filemtime($file));
 
-			if(General::in_iarray($type, fieldUpload::$imageMimeTypes) && $array = @getimagesize($file)){
+			if(General::in_iarray($type, fieldPrivate_upload::$imageMimeTypes) && $array = @getimagesize($file)){
 				$meta['width'] = $array[0];
 				$meta['height'] = $array[1];
 			}
