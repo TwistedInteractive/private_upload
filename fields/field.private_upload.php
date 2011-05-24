@@ -147,7 +147,7 @@
 		}
 
 		public function entryDataCleanup($entry_id, $data){
-			$file_location = WORKSPACE . '/' . ltrim($data['file'], '/');
+			$file_location = '/'.ltrim($data['file'], '/');
 
 			if(is_file($file_location)){
 				General::deleteFile($file_location);
@@ -331,6 +331,7 @@
 				return self::__OK__;
 			}
 
+
 			if(!is_dir($this->get('destination') . '/')){
 				$message = __('The destination directory, <code>%s</code>, does not exist.', array($this->get('destination')));
 				return self::__ERROR__;
@@ -368,6 +369,7 @@
 
 				return self::__ERROR_CUSTOM__;
 			}
+
 
 			// Sanitize the filename
 			$data['name'] = Lang::createFilename($data['name']);
