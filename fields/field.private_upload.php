@@ -149,7 +149,7 @@
 		public function entryDataCleanup($entry_id, $data){
 			$file_location = '/'.ltrim($data['file'], '/');
 
-			if(is_file($file_location)){
+			if($file_location != '/' && is_file($file_location)){
 				General::deleteFile($file_location);
 			}
 
