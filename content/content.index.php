@@ -3,11 +3,6 @@ require_once(TOOLKIT . '/class.administrationpage.php');
 
 class contentExtensionPrivate_uploadIndex extends AdministrationPage
 {
-    public function __construct(&$parent)
-    {
-        parent::__construct($parent);
-    }
-
     public function build() {
         parent::build();
     }

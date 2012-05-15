@@ -4,24 +4,6 @@ Class extension_private_upload extends Extension
 {
 
     /**
-     * About
-     * @return array    Information
-     */
-    public function about()
-    {
-        return array(
-            'name' => 'Field: Private Upload Field',
-            'version' => '1.0',
-            'release-date' => '2011-04-29',
-            'author' => array(
-                'name' => 'Giel Berkers',
-                'website' => 'http://www.gielberkers.com',
-                'email' => 'info@gielberkers.com'
-            )
-        );
-    }
-
-    /**
      * De-Installation
      * @return void
      */

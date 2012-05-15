@@ -7,7 +7,9 @@
 	 * A simple Upload field that essentially maps to HTML's `<input type='file '/>`.
 	 */
 
-	Class fieldPrivate_upload extends Field {
+	require_once(TOOLKIT.'/fields/field.upload.php');
+
+	Class fieldPrivate_upload extends fieldUpload {
 
 		protected static $imageMimeTypes = array(
 			'image/gif',
@@ -17,8 +19,11 @@
 			'image/png',
 		);
 
-		public function __construct(&$parent){
-			parent::__construct($parent);
+		/**
+		 * Constructor
+		 */
+		public function __construct(){
+			parent::__construct();
 
 			$this->_name = __('Private File Upload');
 			$this->_required = true;
@@ -27,94 +32,14 @@
 			$this->set('required', 'no');
 		}
 
-		public function canPrePopulate(){
-			return true;
-		}
-
-		public function canFilter() {
-			return true;
-		}
-
-		public function canImport(){
-			return true;
-		}
-
-		public function buildSortingSQL(&$joins, &$where, &$sort, $order='ASC'){
-			$joins .= "LEFT OUTER JOIN `tbl_entries_data_".$this->get('id')."` AS `ed` ON (`e`.`id` = `ed`.`entry_id`) ";
-			$sort = 'ORDER BY ' . (in_array(strtolower($order), array('random', 'rand')) ? 'RAND()' : "`ed`.`file` $order");
-		}
-
-		public function buildDSRetrievalSQL($data, &$joins, &$where, $andOperation = false) {
-			$field_id = $this->get('id');
-
-			if (preg_match('/^mimetype:/', $data[0])) {
-				$data[0] = str_replace('mimetype:', '', $data[0]);
-				$column = 'mimetype';
-
-			} else if (preg_match('/^size:/', $data[0])) {
-				$data[0] = str_replace('size:', '', $data[0]);
-				$column = 'size';
-
-			} else {
-				$column = 'file';
-			}
-
-			if (self::isFilterRegex($data[0])) {
-				$this->_key++;
-
-				if (preg_match('/^regexp:/i', $data[0])) {
-					$pattern = preg_replace('/regexp:/i', null, $this->cleanValue($data[0]));
-					$regex = 'REGEXP';
-				} else {
-					$pattern = preg_replace('/not-?regexp:/i', null, $this->cleanValue($data[0]));
-					$regex = 'NOT REGEXP';
-				}
-
-				$joins .= "
-					LEFT JOIN
-						`tbl_entries_data_{$field_id}` AS t{$field_id}_{$this->_key}
-						ON (e.id = t{$field_id}_{$this->_key}.entry_id)
-				";
-				$where .= "
-					AND t{$field_id}_{$this->_key}.{$column} {$regex} '{$pattern}'
-				";
-
-			} elseif ($andOperation) {
-				foreach ($data as $value) {
-					$this->_key++;
-					$value = $this->cleanValue($value);
-					$joins .= "
-						LEFT JOIN
-							`tbl_entries_data_{$field_id}` AS t{$field_id}_{$this->_key}
-							ON (e.id = t{$field_id}_{$this->_key}.entry_id)
-					";
-					$where .= "
-						AND t{$field_id}_{$this->_key}.{$column} = '{$value}'
-					";
-				}
-
-			} else {
-				if (!is_array($data)) $data = array($data);
-
-				foreach ($data as &$value) {
-					$value = $this->cleanValue($value);
-				}
-
-				$this->_key++;
-				$data = implode("', '", $data);
-				$joins .= "
-					LEFT JOIN
-						`tbl_entries_data_{$field_id}` AS t{$field_id}_{$this->_key}
-						ON (e.id = t{$field_id}_{$this->_key}.entry_id)
-				";
-				$where .= "
-					AND t{$field_id}_{$this->_key}.{$column} IN ('{$data}')
-				";
-			}
-
-			return true;
-		}
-
+		/**
+		 * Display the publish panel
+		 * @param \XMLElement $wrapper
+		 * @param null $data
+		 * @param null $flagWithError
+		 * @param null $fieldnamePrefix
+		 * @param null $fieldnamePostfix
+		 */
 		public function displayPublishPanel(&$wrapper, $data=NULL, $flagWithError=NULL, $fieldnamePrefix=NULL, $fieldnamePostfix=NULL){
 
 			if(!is_dir($this->get('destination') . '/')){
@@ -146,11 +71,13 @@
 
 		}
 
-		function isSortable(){
-			return true;
-		}
-
-		public function entryDataCleanup($entry_id, $data){
+		/**
+		 * Run actions when the entry is deleted.
+		 * @param array|int $entry_id
+		 * @param null $data
+		 * @return bool
+		 */
+/*		public function entryDataCleanup($entry_id, $data){
 			$file_location = '/'.ltrim($data['file'], '/');
 
 			if($file_location != '/' && is_file($file_location)){
@@ -160,8 +87,13 @@
 			parent::entryDataCleanup($entry_id);
 
 			return true;
-		}
+		}*/
 
+		/**
+		 * Check the fields for errors
+		 * @param array $errors
+		 * @param bool $checkForDuplicates
+		 */
 		public function checkFields(&$errors, $checkForDuplicates=true){
 
 			if(!is_dir($this->get('destination') . '/')){
@@ -175,55 +107,41 @@
 			parent::checkFields($errors, $checkForDuplicates);
 		}
 
-		function commit(){
-
-			if(!parent::commit()) return false;
-
-			$id = $this->get('id');
-
-			if($id === false) return false;
-
-			$fields = array();
-
-			$fields['field_id'] = $id;
-			$fields['destination'] = $this->get('destination');
-			$fields['validator'] = ($fields['validator'] == 'custom' ? NULL : $this->get('validator'));
-
-			Symphony::Database()->query("DELETE FROM `tbl_fields_".$this->handle()."` WHERE `field_id` = '$id' LIMIT 1");
-			return Symphony::Database()->insert($fields, 'tbl_fields_' . $this->handle());
-
-		}
-
+		/**
+		 * Prepare the table value for the index screen
+		 * @param array $data
+		 * @param null|XMLElement $link
+		 * @return string
+		 */
 		public function prepareTableValue($data, XMLElement $link=NULL){
-			if(!$file = $data['file']) return NULL;
-
-            /*
-			if($link){
-				$link->setValue(basename($file));
-				return $link->generate();
+			if(!$file = $data['file']){
+				if($link) return parent::prepareTableValue(null, $link);
+				else return parent::prepareTableValue(null);
 			}
-
-			else{
-				$link = Widget::Anchor(basename($file), URL . '/workspace' . $file);
-				return $link->generate();
-			}
-            */
 
             $linkStr = '<a href="'.URL.'/symphony/extension/private_upload/?file='.$file.'">'.basename($file).'</a>';
             return $linkStr;
 		}
 
-		public function appendFormattedElement(&$wrapper, $data){
+		/**
+		 * Append the formatted element to the XML output
+		 * @param XMLElement $wrapper
+		 * @param array $data
+		 * @param bool $encode
+		 * @param null $mode
+		 * @param null $entry_id
+		 */
+		public function appendFormattedElement(XMLElement &$wrapper, $data, $encode = false, $mode = null, $entry_id = null){
 			// It is possible an array of NULL data will be passed in. Check for this.
 			if(!is_array($data) || !isset($data['file']) || is_null($data['file'])){
 				return;
 			}
 
 			$item = new XMLElement($this->get('element_name'));
-			$file = WORKSPACE . $data['file'];
+			$file = $data['file'];
 			$item->setAttributeArray(array(
 				'size' => (file_exists($file) && is_readable($file) ? General::formatFilesize(filesize($file)) : 'unknown'),
-			 	'path' => str_replace(WORKSPACE, NULL, dirname(WORKSPACE . $data['file'])),
+			 	'path' => dirname($data['file']),
 				'type' => $data['mimetype'],
 			));
 
@@ -238,6 +156,11 @@
 			$wrapper->appendChild($item);
 		}
 
+		/**
+		 * Display the settings panel when editing a section
+		 * @param \XMLElement $wrapper
+		 * @param null $errors
+		 */
 		public function displaySettingsPanel(&$wrapper, $errors = null) {
 			parent::displaySettingsPanel($wrapper, $errors);
 
@@ -262,6 +185,13 @@
 
 		}
 
+		/**
+		 * Check the POST field data
+		 * @param array $data
+		 * @param string $message
+		 * @param null $entry_id
+		 * @return int
+		 */
 		function checkPostFieldData($data, &$message, $entry_id=NULL){
 
 			/*
@@ -388,40 +318,20 @@
 
 			}
 
-			$abs_path = '/'.trim($this->get('destination'), '/');
-			$new_file = $abs_path . '/' . $data['name'];
-			$existing_file = NULL;
-
-			if($entry_id){
-				$row = Symphony::Database()->fetchRow(0, "SELECT * FROM `tbl_entries_data_".$this->get('id')."` WHERE `entry_id` = '$entry_id' LIMIT 1");
-				$existing_file = $abs_path . '/' . basename($row['file'], '/');
-			}
-
-            /*
-			if((strtolower($existing_file) != strtolower($new_file)) && file_exists($new_file)){
-                // File allready exists, rename the file so that it is unique.
-                $ok = false;
-                $i  = 2;
-                while($ok == false)
-                {
-                    $a = explode('.', $data['name']);
-                    $a[count($a)-2].='-'.$i;
-                    $filename = implode('.', $a);
-                    $new_file = $abs_path.'/'.$filename;
-                    $i++;
-                    $ok = !file_exists($new_file);
-                }
-				// $message = __('A file with the name %1$s already exists in %2$s. Please rename the file first, or choose another.', array($data['name'], $this->get('destination')));
-				// return self::__INVALID_FIELDS__;
-			}
-             
-             */
-
 			return self::__OK__;
 
 		}
 
-		public function processRawFieldData($data, &$status, $simulate=false, $entry_id=NULL){
+		/**
+		 * Process the raw field data
+		 * @param mixed $data
+		 * @param int $status
+		 * @param null $message
+		 * @param bool $simulate
+		 * @param null $entry_id
+		 * @return array|mixed
+		 */
+		public function processRawFieldData($data, &$status, &$message=null, $simulate=false, $entry_id=null) {
 
 			$status = self::__OK__;
 
@@ -442,7 +352,7 @@
 
 				// Ensure the file exists in the `WORKSPACE` directory
 				// @link http://symphony-cms.com/discuss/issues/view/610/
-				$file = preg_replace(array('%/+%', '%(^|/)../%'), '/', $data);
+				$file = preg_replace(array('%/+%', '%(^|/)\.\./%'), '/', $data);
 
 				$result = array(
 					'file' => $data,
@@ -464,14 +374,20 @@
 				}
 
 				if(!file_exists($file) || !is_readable($file)){
+					$message = __('The file uploaded is no longer available. Please check that it exists, and is readable.');
 					$status = self::__INVALID_FIELDS__;
 					return $result;
+				}
+				else{
+					if(empty($result['mimetype'])) $result['mimetype'] = (function_exists('mime_content_type') ? mime_content_type($file) : 'application/octet-stream');
+					if(empty($result['size'])) $result['size'] = filesize($file);
+					if(empty($result['meta'])) $result['meta'] = serialize(self::getMetaInfo($file, $result['mimetype']));
 				}
 
 				return $result;
 			}
 
-			if($simulate) return;
+			if($simulate && is_null($entry_id)) return $data;
 
 			// Upload the new file
 			$abs_path = '/' . trim($this->get('destination'), '/');
@@ -485,7 +401,7 @@
 					$entry_id
 				));
 
-				$existing_file = rtrim($rel_path, '/') . '/' . trim(basename($row['file']), '/');
+				$existing_file = $row['file'];
 
 				// File was removed
 				if($data['error'] == UPLOAD_ERR_NO_FILE && !is_null($existing_file) && is_file($existing_file)){
@@ -533,7 +449,7 @@
 
 			// If browser doesn't send MIME type (e.g. .flv in Safari)
 			if (strlen(trim($data['type'])) == 0){
-				$data['type'] = 'unknown';
+				$data['type'] = (function_exists('mime_content_type') ? mime_content_type($file) : 'application/octet-stream');
 			}
 
 			return array(
@@ -542,45 +458,6 @@
 				'mimetype' => $data['type'],
 				'meta' => serialize(self::getMetaInfo($file, $data['type']))
 			);
-		}
-
-		public static function getMetaInfo($file, $type){
-			$meta = array();
-
-			if(!file_exists($file) || !is_readable($file)) return $meta;
-
-			$meta['creation'] = DateTimeObj::get('c', filemtime($file));
-
-			if(General::in_iarray($type, fieldPrivate_upload::$imageMimeTypes) && $array = @getimagesize($file)){
-				$meta['width'] = $array[0];
-				$meta['height'] = $array[1];
-			}
-
-			return $meta;
-		}
-
-		function createTable(){
-			return Symphony::Database()->query(
-				"CREATE TABLE IF NOT EXISTS `tbl_entries_data_" . $this->get('id') . "` (
-				  `id` int(11) unsigned NOT NULL auto_increment,
-				  `entry_id` int(11) unsigned NOT NULL,
-				  `file` varchar(255) default NULL,
-				  `size` int(11) unsigned NULL,
-				  `mimetype` varchar(50) default NULL,
-				  `meta` varchar(255) default NULL,
-				  PRIMARY KEY  (`id`),
-				  UNIQUE KEY `entry_id` (`entry_id`),
-				  KEY `file` (`file`),
-				  KEY `mimetype` (`mimetype`)
-				) ENGINE=MyISAM;"
-			);
-		}
-
-		public function getExampleFormMarkup(){
-			$label = Widget::Label($this->get('label'));
-			$label->appendChild(Widget::Input('fields['.$this->get('element_name').']', NULL, 'file'));
-
-			return $label;
 		}
 
 	}
