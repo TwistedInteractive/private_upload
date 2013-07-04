@@ -2,16 +2,12 @@
 <extension id="private_upload" status="released" xmlns="http://symphony-cms.com/schemas/extension/1.0">
 	<name>Private Upload</name>
 	<description>Upload files to any given location</description>
-	<repo type="github">https://github.com/kanduvisla/private_upload</repo>
-	<url type="discuss">http://symphony-cms.com/discuss/thread/67840/</url>
+	<repo type="github">https://github.com/TwistedInteractive/private_upload</repo>
 	<types>
 		<type>Field Types</type>
 	</types>
 	<authors>
-		<author>
-			<name github="kanduvisla" symphony="kanduvisla">Giel Berkers</name>
-			<website>http://www.gielberkers.com</website>
-		</author>
+	
 	</authors>
 	<releases>
 		<release version="1.1" date="2012-05-15" min="2.3" />
